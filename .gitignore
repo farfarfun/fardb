@@ -153,3 +153,4 @@ dmypy.json
 .specstory/
 CLAUDE.local.md
 AGENTS.local.md
+logs/
