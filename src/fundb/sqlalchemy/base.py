@@ -1,5 +1,5 @@
 import pandas as pd
-from funlog import getLogger
+from nltlog import getLogger
 from sqlalchemy import BIGINT, Engine, UniqueConstraint, delete
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, sessionmaker

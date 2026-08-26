@@ -2,7 +2,7 @@ import traceback
 from datetime import datetime
 from hashlib import md5
 
-from funlog import getLogger
+from nltlog import getLogger
 from funutil.cache import disk_cache
 from sqlalchemy import String, select, update
 from sqlalchemy.dialects.postgresql import insert
