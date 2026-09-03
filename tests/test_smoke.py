@@ -162,3 +162,181 @@ def test_jsonstorage_request_mocks_network():
         "https://json.extendsclass.com/bin/bin123",
         headers={"Security-key": "secret"},
     )
+
+
+def test_jsonstorage_request_without_security_key():
+    """security_key 是可选参数：未提供时应发送 header 值为 None（边界路径）。"""
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.json.return_value = {"ok": True}
+
+    with patch(
+        "fundb.json.jsonextendsclass.requests.get", return_value=fake_response
+    ) as mock_get:
+        storage.request("bin123")
+
+    mock_get.assert_called_once_with(
+        "https://json.extendsclass.com/bin/bin123",
+        headers={"Security-key": None},
+    )
+
+
+def test_jsonstorage_update_calls_put_with_serialized_body():
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.json.return_value = {"updated": True}
+
+    with patch(
+        "fundb.json.jsonextendsclass.requests.put", return_value=fake_response
+    ) as mock_put:
+        result = storage.update("bin123", {"a": 1}, security_key="secret")
+
+    assert result == {"updated": True}
+    mock_put.assert_called_once_with(
+        "https://json.extendsclass.com/bin/bin123",
+        headers={"Security-key": "secret"},
+        data='{"a": 1}',
+    )
+
+
+def test_jsonstorage_delete_calls_delete():
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.json.return_value = {"deleted": True}
+
+    with patch(
+        "fundb.json.jsonextendsclass.requests.delete", return_value=fake_response
+    ) as mock_delete:
+        result = storage.delete("bin123", security_key="secret")
+
+    assert result == {"deleted": True}
+    mock_delete.assert_called_once_with(
+        "https://json.extendsclass.com/bin/bin123",
+        headers={"Security-key": "secret"},
+    )
+
+
+def test_jsonstorage_create_calls_post_with_expected_headers():
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.json.return_value = {"bin": "new-bin-id"}
+
+    with patch(
+        "fundb.json.jsonextendsclass.requests.post", return_value=fake_response
+    ) as mock_post:
+        result = storage.create(
+            "api-key", {"a": 1}, security_key="secret", private="true"
+        )
+
+    assert result == {"bin": "new-bin-id"}
+    mock_post.assert_called_once_with(
+        "https://json.extendsclass.com/bin",
+        headers={"Api-key": "api-key", "Security-key": "secret", "Private": "true"},
+        data='{"a": 1}',
+    )
+
+
+def test_jsonstorage_all_bins_calls_get():
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.json.return_value = {"bins": []}
+
+    with patch(
+        "fundb.json.jsonextendsclass.requests.get", return_value=fake_response
+    ) as mock_get:
+        result = storage.all_bins("api-key")
+
+    assert result == {"bins": []}
+    mock_get.assert_called_once_with(
+        "https://json.extendsclass.com/bins",
+        headers={"Api-key": "api-key"},
+    )
+
+
+def test_jsonstorage_request_propagates_network_errors():
+    """网络层异常（边界路径）应原样向调用方传播，而不是被静默吞掉。"""
+    import pytest
+    import requests
+
+    from fundb.json import JSONStorage
+
+    storage = JSONStorage()
+
+    with (
+        patch(
+            "fundb.json.jsonextendsclass.requests.get",
+            side_effect=requests.ConnectionError("boom"),
+        ),
+        pytest.raises(requests.ConnectionError),
+    ):
+        storage.request("bin123")
+
+
+def test_basetable_insert_raises_domain_error_on_failure():
+    """insert() 在数据库写入失败时应抛出 TableOperationError，而不是吞掉异常。"""
+    import pytest
+    from sqlalchemy import BIGINT
+    from sqlalchemy.orm import mapped_column
+
+    from fundb.sqlalchemy import Base, BaseTable, create_engine_sqlite
+    from fundb.sqlalchemy.base import TableOperationError
+
+    class FailTable(Base):
+        __tablename__ = "fail_table"
+        id = mapped_column(BIGINT, primary_key=True)
+
+    engine = create_engine_sqlite(":memory:")
+    table = BaseTable(engine, table=FailTable)
+    # 人为制造一个真实的数据库层错误：先把刚建好的表删掉，再写入。
+    FailTable.metadata.drop_all(engine)
+
+    with pytest.raises(TableOperationError):
+        table.insert({"id": 1})
+
+
+def test_orm_basetable_upsert_raises_domain_error_on_failure(tmp_path, monkeypatch):
+    """table.py 中 BaseTable.upsert 失败时应抛出 TableOperationError。"""
+    import pytest
+
+    monkeypatch.chdir(tmp_path)
+
+    from sqlalchemy import String
+    from sqlalchemy.orm import Mapped, Session, mapped_column
+
+    from fundb.sqlalchemy import create_engine_sqlite
+    from fundb.sqlalchemy.base import TableOperationError
+    from fundb.sqlalchemy.table import BaseTable as OrmBaseTable
+
+    class SmokeOrmTable2(OrmBaseTable):
+        __tablename__ = "smoke_orm_table_2"
+        name: Mapped[str] = mapped_column(String(64), default="")
+
+        def _get_uid(self):
+            return self.name
+
+        def _to_dict(self):
+            # 故意返回一个表里不存在的列，触发真实的 SQLAlchemy 报错，
+            # 用来验证 upsert() 会把它包装为 TableOperationError 而不是吞掉。
+            return {"name": self.name, "not_a_real_column": "x"}
+
+        def _child(self):
+            return SmokeOrmTable2
+
+    engine = create_engine_sqlite(":memory:")
+    SmokeOrmTable2.metadata.create_all(engine)
+
+    row = SmokeOrmTable2(name="hello")
+    row.uid = row.get_uid()
+
+    with Session(engine) as session, pytest.raises(TableOperationError):
+        row.upsert(session)
