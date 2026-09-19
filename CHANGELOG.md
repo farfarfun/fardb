@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0]
+
+### 变更
+
+- 项目更名：`fundb` → `fardb`。PyPI 上 `fundb` 与 `fundb-tau` 均已被占用/弃用，
+  发布名与源码包名统一改为 `fardb`（`src/fundb` → `src/fardb`），
+  `import fundb` 需改为 `import fardb`。
+- 仓库地址迁移为 `farfarfun/fardb`。
+
 ## [1.3.20]
 
 ### 修复

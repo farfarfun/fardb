@@ -1,4 +1,4 @@
-"""Lightweight smoke tests for fundb.
+"""Lightweight smoke tests for fardb.
 
 These tests confirm the public API can be imported and exercised at a basic
 level. Real network calls (JSONStorage) are mocked with unittest.mock.
@@ -10,18 +10,18 @@ import hashlib
 from unittest.mock import MagicMock, patch
 
 
-def test_import_fundb():
-    import fundb  # noqa: F401
+def test_import_fardb():
+    import fardb  # noqa: F401
 
 
-def test_import_fundb_json():
-    from fundb.json import JSONStorage
+def test_import_fardb_json():
+    from fardb.json import JSONStorage
 
     assert callable(JSONStorage)
 
 
-def test_import_fundb_sqlalchemy():
-    from fundb.sqlalchemy import (
+def test_import_fardb_sqlalchemy():
+    from fardb.sqlalchemy import (
         Base,
         BaseTable,
         create_engine,
@@ -40,7 +40,7 @@ def test_create_engine_sqlite_memory_real_connection():
     """sqlite in-memory is a real but fully local/ephemeral DB, safe to hit directly."""
     from sqlalchemy import text
 
-    from fundb.sqlalchemy import create_engine_sqlite
+    from fardb.sqlalchemy import create_engine_sqlite
 
     engine = create_engine_sqlite(":memory:")
     with engine.connect() as conn:
@@ -49,7 +49,7 @@ def test_create_engine_sqlite_memory_real_connection():
 
 
 def test_create_engine_caches_by_uri():
-    from fundb.sqlalchemy.engine import create_engine
+    from fardb.sqlalchemy.engine import create_engine
 
     e1 = create_engine("sqlite:///:memory:cache-smoke-test", cache=True)
     e2 = create_engine("sqlite:///:memory:cache-smoke-test", cache=True)
@@ -62,9 +62,9 @@ def test_create_engine_caches_by_uri():
 def test_create_engine_mysql_builds_expected_uri():
     """pymysql is not installed/required for this smoke suite, so mock the
     underlying sqlalchemy.create_engine call to avoid a real driver import."""
-    with patch("fundb.sqlalchemy.engine.create_engine2") as mock_create:
+    with patch("fardb.sqlalchemy.engine.create_engine2") as mock_create:
         mock_create.return_value = MagicMock()
-        from fundb.sqlalchemy import create_engine_mysql
+        from fardb.sqlalchemy import create_engine_mysql
 
         create_engine_mysql("myhost", "myuser", "mypass", "mydb", port=3307)
 
@@ -73,12 +73,12 @@ def test_create_engine_mysql_builds_expected_uri():
 
 
 def test_basetable_crud_with_sqlite_memory():
-    """fundb.sqlalchemy.BaseTable wraps simple CRUD helpers; exercise them
+    """fardb.sqlalchemy.BaseTable wraps simple CRUD helpers; exercise them
     against a real local sqlite in-memory engine (no external DB involved)."""
     from sqlalchemy import BIGINT, String
     from sqlalchemy.orm import mapped_column
 
-    from fundb.sqlalchemy import Base, BaseTable, create_engine_sqlite
+    from fardb.sqlalchemy import Base, BaseTable, create_engine_sqlite
 
     class SmokeTable(Base):
         __tablename__ = "smoke_table"
@@ -106,7 +106,7 @@ def test_basetable_crud_with_sqlite_memory():
 
 
 def test_orm_basetable_get_uid_and_to_dict(tmp_path, monkeypatch):
-    """fundb.sqlalchemy.table.BaseTable is a DeclarativeBase mixin. Importing
+    """fardb.sqlalchemy.table.BaseTable is a DeclarativeBase mixin. Importing
     it eagerly initializes an on-disk cache directory (funutil.cache.disk_cache
     runs at class-definition time) as a side effect, so chdir into a tmp dir
     first to avoid leaving .disk_cache artifacts in the repo."""
@@ -115,7 +115,7 @@ def test_orm_basetable_get_uid_and_to_dict(tmp_path, monkeypatch):
     from sqlalchemy import String
     from sqlalchemy.orm import Mapped, mapped_column
 
-    from fundb.sqlalchemy.table import BaseTable as OrmBaseTable
+    from fardb.sqlalchemy.table import BaseTable as OrmBaseTable
 
     class SmokeOrmTable(OrmBaseTable):
         __tablename__ = "smoke_orm_table"
@@ -137,7 +137,7 @@ def test_orm_basetable_get_uid_and_to_dict(tmp_path, monkeypatch):
 
 
 def test_jsonstorage_construction():
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     assert storage.base_url == "https://json.extendsclass.com"
@@ -146,14 +146,14 @@ def test_jsonstorage_construction():
 def test_jsonstorage_request_mocks_network():
     """JSONStorage.request() does a real HTTP GET; mock requests.get so this
     smoke test doesn't depend on network access."""
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"ok": True}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.get", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.get", return_value=fake_response
     ) as mock_get:
         result = storage.request("bin123", security_key="secret")
 
@@ -166,14 +166,14 @@ def test_jsonstorage_request_mocks_network():
 
 def test_jsonstorage_request_without_security_key():
     """security_key 是可选参数：未提供时应发送 header 值为 None（边界路径）。"""
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"ok": True}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.get", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.get", return_value=fake_response
     ) as mock_get:
         storage.request("bin123")
 
@@ -184,14 +184,14 @@ def test_jsonstorage_request_without_security_key():
 
 
 def test_jsonstorage_update_calls_put_with_serialized_body():
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"updated": True}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.put", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.put", return_value=fake_response
     ) as mock_put:
         result = storage.update("bin123", {"a": 1}, security_key="secret")
 
@@ -204,14 +204,14 @@ def test_jsonstorage_update_calls_put_with_serialized_body():
 
 
 def test_jsonstorage_delete_calls_delete():
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"deleted": True}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.delete", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.delete", return_value=fake_response
     ) as mock_delete:
         result = storage.delete("bin123", security_key="secret")
 
@@ -223,14 +223,14 @@ def test_jsonstorage_delete_calls_delete():
 
 
 def test_jsonstorage_create_calls_post_with_expected_headers():
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"bin": "new-bin-id"}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.post", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.post", return_value=fake_response
     ) as mock_post:
         result = storage.create(
             "api-key", {"a": 1}, security_key="secret", private="true"
@@ -245,14 +245,14 @@ def test_jsonstorage_create_calls_post_with_expected_headers():
 
 
 def test_jsonstorage_all_bins_calls_get():
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
     fake_response = MagicMock()
     fake_response.json.return_value = {"bins": []}
 
     with patch(
-        "fundb.json.jsonextendsclass.requests.get", return_value=fake_response
+        "fardb.json.jsonextendsclass.requests.get", return_value=fake_response
     ) as mock_get:
         result = storage.all_bins("api-key")
 
@@ -268,13 +268,13 @@ def test_jsonstorage_request_propagates_network_errors():
     import pytest
     import requests
 
-    from fundb.json import JSONStorage
+    from fardb.json import JSONStorage
 
     storage = JSONStorage()
 
     with (
         patch(
-            "fundb.json.jsonextendsclass.requests.get",
+            "fardb.json.jsonextendsclass.requests.get",
             side_effect=requests.ConnectionError("boom"),
         ),
         pytest.raises(requests.ConnectionError),
@@ -288,8 +288,8 @@ def test_basetable_insert_raises_domain_error_on_failure():
     from sqlalchemy import BIGINT
     from sqlalchemy.orm import mapped_column
 
-    from fundb.sqlalchemy import Base, BaseTable, create_engine_sqlite
-    from fundb.sqlalchemy.base import TableOperationError
+    from fardb.sqlalchemy import Base, BaseTable, create_engine_sqlite
+    from fardb.sqlalchemy.base import TableOperationError
 
     class FailTable(Base):
         __tablename__ = "fail_table"
@@ -313,9 +313,9 @@ def test_orm_basetable_upsert_raises_domain_error_on_failure(tmp_path, monkeypat
     from sqlalchemy import String
     from sqlalchemy.orm import Mapped, Session, mapped_column
 
-    from fundb.sqlalchemy import create_engine_sqlite
-    from fundb.sqlalchemy.base import TableOperationError
-    from fundb.sqlalchemy.table import BaseTable as OrmBaseTable
+    from fardb.sqlalchemy import create_engine_sqlite
+    from fardb.sqlalchemy.base import TableOperationError
+    from fardb.sqlalchemy.table import BaseTable as OrmBaseTable
 
     class SmokeOrmTable2(OrmBaseTable):
         __tablename__ = "smoke_orm_table_2"

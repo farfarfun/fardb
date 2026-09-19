@@ -1,15 +1,15 @@
-# fundb
+# fardb
 
-`fundb` 是一个轻量的数据库访问工具库，基于 SQLAlchemy 封装了常用的表 CRUD / upsert 操作，
+`fardb` 是一个轻量的数据库访问工具库，基于 SQLAlchemy 封装了常用的表 CRUD / upsert 操作，
 并附带一个 [extendsclass.com JSON Storage](https://extendsclass.com/json-storage.html) 的简易客户端。
 
 ## 安装
 
 > ⚠️ PyPI 上的 `fundb` 这个名字已被无关第三方项目占用（[Madhava-mng/FunDB](https://github.com/Madhava-mng/FunDB)），
-> **不要** `pip install fundb`，本仓库真正的发布名是 `fundb-tau`。
+> 本仓库已更名为 `fardb`。
 
 ```bash
-pip install fundb-tau
+pip install fardb
 ```
 
 ## 快速上手
@@ -18,7 +18,7 @@ pip install fundb-tau
 from sqlalchemy import BIGINT, String
 from sqlalchemy.orm import mapped_column
 
-from fundb.sqlalchemy import Base, BaseTable, create_engine_sqlite
+from fardb.sqlalchemy import Base, BaseTable, create_engine_sqlite
 
 
 class UserTable(Base):

@@ -12,7 +12,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, sessionmaker
 from sqlalchemy.sql import Insert
 
-logger = getLogger("fundb")
+logger = getLogger("fardb")
 
 
 class TableOperationError(RuntimeError):

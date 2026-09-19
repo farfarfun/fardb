@@ -12,9 +12,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
-from fundb.sqlalchemy.base import TableOperationError
+from fardb.sqlalchemy.base import TableOperationError
 
-logger = getLogger("fundb")
+logger = getLogger("fardb")
 
 
 class BaseTable(DeclarativeBase):
