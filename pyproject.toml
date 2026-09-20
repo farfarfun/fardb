@@ -1,6 +1,6 @@
 [project]
 name = "fardb"
-version = "1.4.0"
+version = "1.4.2"
 description = "fardb"
 readme = "README.md"
 requires-python = ">=3.10"
