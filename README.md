@@ -5,9 +5,6 @@
 
 ## 安装
 
-> ⚠️ PyPI 上的 `fundb` 这个名字已被无关第三方项目占用（[Madhava-mng/FunDB](https://github.com/Madhava-mng/FunDB)），
-> 本仓库已更名为 `fardb`。
-
 ```bash
 pip install fardb
 ```
@@ -34,6 +31,8 @@ table.insert({"id": 1, "name": "alice"})
 df = table.select_all()
 print(df)
 ```
+
+---
 
 ## 关于 farfarfun
 

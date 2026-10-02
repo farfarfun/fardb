@@ -1,18 +1,32 @@
 # Changelog
 
-## [1.4.3]
+## [1.4.4]
 
 ### 修复
 
-- JSON Storage 请求增加超时、HTTP 状态检查，并在失败时抛出包含请求方法、URL
-  和资源标识的 `JSONStorageError`。
-- 补齐 SQLAlchemy 公开 API 的类型标注和 ORM 正常路径测试。
+- `JSONStorage` 的 5 个 HTTP 调用补齐 10 秒超时与 `raise_for_status()`，失败时
+  抛出带请求方法、URL 与资源标识的 `JSONStorageError`。此前没有超时，服务端不
+  响应时调用方会无限期挂起；且 4xx/5xx 的响应体会被当成正常结果返回。已发布的
+  1.4.3 仍带此缺陷。
+- 上一版 CHANGELOG 把这些改动记在 `[1.4.3]` 下，但它们是 1.4.3 发布之后才提交
+  的，已发布的 1.4.3 并不包含，现更正到本版本。
 
 ### 变更
 
+- 补齐 SQLAlchemy 公开 API 的类型标注（`ruff check --select ANN` 下 `src/` 已无
+  缺失标注，仅剩 `Any` 相关的 ANN401）。
+- 新增 ORM 正常路径测试（`upsert` 插入 / 已存在不覆盖 / `update_data=True` 更新、
+  `select_all`）以及 `select_all` 的跨表缓存隔离测试。
 - 提交 `uv.lock`，确保依赖解析可复现。
-- 项目发布名和源码包已由 `fundb` 改为 `fardb`；调用方需将
-  `import fundb` 改为 `import fardb`。GitHub 仓库改名尚待仓库管理员完成。
+- `dev` 依赖组补上 `ruff`，使 §7 要求的 lint/format 在干净克隆中可直接执行。
+- 仓库已更名为 `farfarfun/fardb`，仓库 description 与 homepage 同步指向 `fardb`。
+- README 去掉改名历史说明，只描述当前状态。
+
+## [1.4.3]
+
+### 变更
+
+- 仅递增版本号，代码与 1.4.2 完全相同。
 
 ## [1.4.0]
 

@@ -157,3 +157,5 @@ dmypy.json
 CLAUDE.local.md
 AGENTS.local.md
 logs/
+# farcache.disk_cache 的默认落盘目录
+.disk_cache/

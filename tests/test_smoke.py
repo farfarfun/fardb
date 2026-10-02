@@ -107,7 +107,7 @@ def test_basetable_crud_with_sqlite_memory():
 
 def test_orm_basetable_get_uid_and_to_dict(tmp_path, monkeypatch):
     """fardb.sqlalchemy.table.BaseTable is a DeclarativeBase mixin. Importing
-    it eagerly initializes an on-disk cache directory (funutil.cache.disk_cache
+    it eagerly initializes an on-disk cache directory (farcache.disk_cache
     runs at class-definition time) as a side effect, so chdir into a tmp dir
     first to avoid leaving .disk_cache artifacts in the repo."""
     monkeypatch.chdir(tmp_path)
@@ -428,3 +428,84 @@ def test_orm_basetable_upsert_and_select_all_success(tmp_path, monkeypatch):
     OrmBaseTable.select_all.cache_clear()
     OrmBaseTable.select_all.cache_close()
     globals().pop("UpsertTable", None)
+
+
+def test_select_all_cache_is_isolated_per_table(tmp_path, monkeypatch):
+    """`select_all` 的缓存键必须包含 table，不同表之间不能串用缓存结果。
+
+    `disk_cache(cache_key="table")` 里的 `"table"` 是被纳入缓存键的**参数名**
+    （farcache 的 `cache_key` 语义），不是一个固定的字面量键；本用例把这一点钉住，
+    防止后续改成真正的固定键而让两张表互相读到对方的结果。
+    """
+    monkeypatch.chdir(tmp_path)
+
+    from sqlalchemy import String
+    from sqlalchemy.orm import Mapped, Session, mapped_column
+
+    from fardb.sqlalchemy import create_engine_sqlite
+    from fardb.sqlalchemy.table import BaseTable as OrmBaseTable
+
+    class CacheLeftTable(OrmBaseTable):
+        __tablename__ = "cache_left_table"
+        name: Mapped[str] = mapped_column(String(64), default="")
+
+        def _get_uid(self) -> str:
+            return self.name
+
+        def _to_dict(self) -> dict:
+            return {"name": self.name}
+
+        def _child(self) -> type["CacheLeftTable"]:
+            return CacheLeftTable
+
+    class CacheRightTable(OrmBaseTable):
+        __tablename__ = "cache_right_table"
+        name: Mapped[str] = mapped_column(String(64), default="")
+
+        def _get_uid(self) -> str:
+            return self.name
+
+        def _to_dict(self) -> dict:
+            return {"name": self.name}
+
+        def _child(self) -> type["CacheRightTable"]:
+            return CacheRightTable
+
+    # 缓存结果会被 pickle，模型类需要能按限定名找回；模块级模型天然满足。
+    for model in (CacheLeftTable, CacheRightTable):
+        model.__qualname__ = model.__name__
+        globals()[model.__name__] = model
+
+    engine = create_engine_sqlite(":memory:")
+    CacheLeftTable.metadata.create_all(engine)
+
+    try:
+        with Session(engine) as session:
+            assert OrmBaseTable.select_all.cache_key(
+                session, CacheLeftTable
+            ) != OrmBaseTable.select_all.cache_key(session, CacheRightTable)
+
+            left = CacheLeftTable(name="left-row")
+            left.uid = left.get_uid()
+            left.upsert(session)
+            right = CacheRightTable(name="right-row")
+            right.uid = right.get_uid()
+            right.upsert(session)
+            session.commit()
+
+            # 先查左表填充缓存，再查右表：右表不能命中左表的缓存。
+            assert [
+                item.name for item in OrmBaseTable.select_all(session, CacheLeftTable)
+            ] == ["left-row"]
+            assert [
+                item.name for item in OrmBaseTable.select_all(session, CacheRightTable)
+            ] == ["right-row"]
+            # 回头再查左表，命中缓存后结果仍然是左表自己的数据。
+            assert [
+                item.name for item in OrmBaseTable.select_all(session, CacheLeftTable)
+            ] == ["left-row"]
+    finally:
+        OrmBaseTable.select_all.cache_clear()
+        OrmBaseTable.select_all.cache_close()
+        for model in (CacheLeftTable, CacheRightTable):
+            globals().pop(model.__name__, None)
