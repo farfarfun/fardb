@@ -161,7 +161,9 @@ def test_jsonstorage_request_mocks_network():
     mock_get.assert_called_once_with(
         "https://json.extendsclass.com/bin/bin123",
         headers={"Security-key": "secret"},
+        timeout=10.0,
     )
+    fake_response.raise_for_status.assert_called_once_with()
 
 
 def test_jsonstorage_request_without_security_key():
@@ -180,6 +182,7 @@ def test_jsonstorage_request_without_security_key():
     mock_get.assert_called_once_with(
         "https://json.extendsclass.com/bin/bin123",
         headers={"Security-key": None},
+        timeout=10.0,
     )
 
 
@@ -200,6 +203,7 @@ def test_jsonstorage_update_calls_put_with_serialized_body():
         "https://json.extendsclass.com/bin/bin123",
         headers={"Security-key": "secret"},
         data='{"a": 1}',
+        timeout=10.0,
     )
 
 
@@ -219,6 +223,7 @@ def test_jsonstorage_delete_calls_delete():
     mock_delete.assert_called_once_with(
         "https://json.extendsclass.com/bin/bin123",
         headers={"Security-key": "secret"},
+        timeout=10.0,
     )
 
 
@@ -241,6 +246,7 @@ def test_jsonstorage_create_calls_post_with_expected_headers():
         "https://json.extendsclass.com/bin",
         headers={"Api-key": "api-key", "Security-key": "secret", "Private": "true"},
         data='{"a": 1}',
+        timeout=10.0,
     )
 
 
@@ -260,15 +266,16 @@ def test_jsonstorage_all_bins_calls_get():
     mock_get.assert_called_once_with(
         "https://json.extendsclass.com/bins",
         headers={"Api-key": "api-key"},
+        timeout=10.0,
     )
 
 
-def test_jsonstorage_request_propagates_network_errors():
-    """网络层异常（边界路径）应原样向调用方传播，而不是被静默吞掉。"""
+def test_jsonstorage_request_wraps_network_errors_with_context():
+    """网络层异常应包装为带请求上下文的领域异常。"""
     import pytest
     import requests
 
-    from fardb.json import JSONStorage
+    from fardb.json import JSONStorage, JSONStorageError
 
     storage = JSONStorage()
 
@@ -277,9 +284,33 @@ def test_jsonstorage_request_propagates_network_errors():
             "fardb.json.jsonextendsclass.requests.get",
             side_effect=requests.ConnectionError("boom"),
         ),
-        pytest.raises(requests.ConnectionError),
+        pytest.raises(JSONStorageError) as exc_info,
     ):
         storage.request("bin123")
+
+    assert "GET" in str(exc_info.value)
+    assert "bin_id=bin123" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, requests.ConnectionError)
+
+
+def test_jsonstorage_request_wraps_http_errors_without_secret():
+    import pytest
+    import requests
+
+    from fardb.json import JSONStorage, JSONStorageError
+
+    storage = JSONStorage()
+    fake_response = MagicMock()
+    fake_response.raise_for_status.side_effect = requests.HTTPError("403 forbidden")
+
+    with (
+        patch("fardb.json.jsonextendsclass.requests.get", return_value=fake_response),
+        pytest.raises(JSONStorageError) as exc_info,
+    ):
+        storage.request("bin123", security_key="do-not-log-this")
+
+    assert "https://json.extendsclass.com/bin/bin123" in str(exc_info.value)
+    assert "do-not-log-this" not in str(exc_info.value)
 
 
 def test_basetable_insert_raises_domain_error_on_failure():
@@ -340,3 +371,60 @@ def test_orm_basetable_upsert_raises_domain_error_on_failure(tmp_path, monkeypat
 
     with Session(engine) as session, pytest.raises(TableOperationError):
         row.upsert(session)
+
+
+def test_orm_basetable_upsert_and_select_all_success(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    from sqlalchemy import String
+    from sqlalchemy.orm import Mapped, Session, mapped_column
+
+    from fardb.sqlalchemy import create_engine_sqlite
+    from fardb.sqlalchemy.table import BaseTable as OrmBaseTable
+
+    class UpsertTable(OrmBaseTable):
+        __tablename__ = "upsert_table"
+        source: Mapped[str] = mapped_column(String(64), default="")
+        name: Mapped[str] = mapped_column(String(64), default="")
+
+        def _get_uid(self) -> str:
+            return self.source
+
+        def _to_dict(self) -> dict:
+            return {"source": self.source, "name": self.name}
+
+        def _child(self) -> type["UpsertTable"]:
+            return UpsertTable
+
+    # ORM 模型通常定义在模块级；为测试模型提供相同的稳定身份，以便缓存序列化结果。
+    UpsertTable.__qualname__ = "UpsertTable"
+    globals()["UpsertTable"] = UpsertTable
+
+    engine = create_engine_sqlite(":memory:")
+    UpsertTable.metadata.create_all(engine)
+
+    row = UpsertTable(source="same", name="before")
+    row.uid = row.get_uid()
+    with Session(engine) as session:
+        row.upsert(session)
+        session.commit()
+        assert [
+            item.name for item in OrmBaseTable.select_all(session, UpsertTable)
+        ] == ["before"]
+
+        unchanged = UpsertTable(source="same", name="ignored")
+        unchanged.uid = row.uid
+        unchanged.upsert(session)
+        session.commit()
+        assert session.get(UpsertTable, row.uid).name == "before"
+
+        changed = UpsertTable(source="same", name="after")
+        changed.uid = row.uid
+        changed.upsert(session, update_data=True)
+        session.commit()
+        session.expire_all()
+        assert session.get(UpsertTable, row.uid).name == "after"
+
+    OrmBaseTable.select_all.cache_clear()
+    OrmBaseTable.select_all.cache_close()
+    globals().pop("UpsertTable", None)

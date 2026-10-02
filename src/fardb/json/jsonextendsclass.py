@@ -9,6 +9,11 @@ import json
 from typing import Any
 
 import requests
+from requests import Response
+
+
+class JSONStorageError(RuntimeError):
+    """JSON Storage 请求失败时抛出的领域异常。"""
 
 
 class JSONStorage:
@@ -17,6 +22,20 @@ class JSONStorage:
     该服务提供以 `bin_id` 为标识的免费 JSON 存储桶，支持读取、更新、
     删除、创建以及列出某个 api_key 下的全部存储桶。
     """
+
+    timeout = 10.0
+
+    @staticmethod
+    def _parse_response(
+        response: Response, method: str, url: str, resource: str
+    ) -> Any:
+        try:
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage {method} request failed: url={url}, {resource}: {exc}"
+            ) from exc
 
     def __init__(self) -> None:
         """初始化客户端，固定使用官方服务地址。"""
@@ -34,8 +53,13 @@ class JSONStorage:
         """
         url = f"{self.base_url}/bin/{bin_id}"
         headers = {"Security-key": security_key}
-        response = requests.get(url, headers=headers)
-        return response.json()
+        try:
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage GET request failed: url={url}, bin_id={bin_id}: {exc}"
+            ) from exc
+        return self._parse_response(response, "GET", url, f"bin_id={bin_id}")
 
     def update(self, bin_id: str, data: Any, security_key: str | None = None) -> Any:
         """覆盖更新指定存储桶的内容。
@@ -50,8 +74,15 @@ class JSONStorage:
         """
         url = f"{self.base_url}/bin/{bin_id}"
         headers = {"Security-key": security_key}
-        response = requests.put(url, headers=headers, data=json.dumps(data))
-        return response.json()
+        try:
+            response = requests.put(
+                url, headers=headers, data=json.dumps(data), timeout=self.timeout
+            )
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage PUT request failed: url={url}, bin_id={bin_id}: {exc}"
+            ) from exc
+        return self._parse_response(response, "PUT", url, f"bin_id={bin_id}")
 
     def delete(self, bin_id: str, security_key: str | None = None) -> Any:
         """删除指定存储桶。
@@ -65,8 +96,13 @@ class JSONStorage:
         """
         url = f"{self.base_url}/bin/{bin_id}"
         headers = {"Security-key": security_key}
-        response = requests.delete(url, headers=headers)
-        return response.json()
+        try:
+            response = requests.delete(url, headers=headers, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage DELETE request failed: url={url}, bin_id={bin_id}: {exc}"
+            ) from exc
+        return self._parse_response(response, "DELETE", url, f"bin_id={bin_id}")
 
     def create(
         self,
@@ -92,8 +128,15 @@ class JSONStorage:
             "Security-key": security_key,
             "Private": private,
         }
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        return response.json()
+        try:
+            response = requests.post(
+                url, headers=headers, data=json.dumps(data), timeout=self.timeout
+            )
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage POST request failed: url={url}, operation=create: {exc}"
+            ) from exc
+        return self._parse_response(response, "POST", url, "operation=create")
 
     def all_bins(self, api_key: str) -> Any:
         """列出某个 api_key 下的全部存储桶。
@@ -108,5 +151,10 @@ class JSONStorage:
         headers = {
             "Api-key": api_key,
         }
-        response = requests.get(url, headers=headers)
-        return response.json()
+        try:
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise JSONStorageError(
+                f"JSON Storage GET request failed: url={url}, operation=all_bins: {exc}"
+            ) from exc
+        return self._parse_response(response, "GET", url, "operation=all_bins")

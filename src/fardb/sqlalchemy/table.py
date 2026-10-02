@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from hashlib import md5
+from typing import Any
 
 from farcache import disk_cache
 from farlog import getLogger
@@ -40,11 +41,11 @@ class BaseTable(DeclarativeBase):
         """返回用于生成 `uid` 的原始字符串，由子类实现。"""
         raise NotImplementedError
 
-    def _to_dict(self) -> dict:
+    def _to_dict(self) -> dict[str, Any]:
         """返回该记录导出为字典的字段内容，由子类实现。"""
         raise NotImplementedError
 
-    def _child(self):
+    def _child(self) -> type[BaseTable]:
         """返回子类自身的模型类，用于构造查询/更新语句，由子类实现。"""
         raise NotImplementedError
 
@@ -52,7 +53,7 @@ class BaseTable(DeclarativeBase):
         """基于 `_get_uid()` 的返回值计算 MD5 作为唯一 ID。"""
         return md5(self._get_uid().encode("utf-8")).hexdigest()
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """导出记录字典，自动补齐 `uid` 并去掉值为 `None` 的字段。"""
         res = self._to_dict()
         res.update(
@@ -99,6 +100,6 @@ class BaseTable(DeclarativeBase):
 
     @staticmethod
     @disk_cache(cache_key="table", expire=600)
-    def select_all(session: Session, table) -> list:
+    def select_all(session: Session, table: type[BaseTable]) -> list[BaseTable]:
         """查询表内全部记录（结果按 `table` 参数缓存 600 秒）。"""
         return [resource for resource in session.execute(select(table)).scalars()]

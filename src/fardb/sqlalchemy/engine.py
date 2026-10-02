@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import Engine
 from sqlalchemy import create_engine as create_engine2
 
 engine_map: dict[str, Engine] = {}
 
 
-def create_engine(uri: str, cache: bool = True, *args, **kwargs) -> Engine:
+def create_engine(uri: str, cache: bool = True, *args: Any, **kwargs: Any) -> Engine:
     """创建（或复用）一个 SQLAlchemy `Engine`。
 
     参数:
@@ -18,7 +20,6 @@ def create_engine(uri: str, cache: bool = True, *args, **kwargs) -> Engine:
     返回:
         对应 `uri` 的 `Engine` 实例。
     """
-    global engine_map
     if cache:
         if uri not in engine_map:
             engine_map[uri] = create_engine2(uri)

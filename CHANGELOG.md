@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.3]
+
+### 修复
+
+- JSON Storage 请求增加超时、HTTP 状态检查，并在失败时抛出包含请求方法、URL
+  和资源标识的 `JSONStorageError`。
+- 补齐 SQLAlchemy 公开 API 的类型标注和 ORM 正常路径测试。
+
+### 变更
+
+- 提交 `uv.lock`，确保依赖解析可复现。
+- 项目发布名和源码包已由 `fundb` 改为 `fardb`；调用方需将
+  `import fundb` 改为 `import fardb`。GitHub 仓库改名尚待仓库管理员完成。
+
 ## [1.4.0]
 
 ### 变更

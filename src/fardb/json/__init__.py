@@ -1,1 +1,3 @@
-from .jsonextendsclass import JSONStorage
+from .jsonextendsclass import JSONStorage, JSONStorageError
+
+__all__ = ["JSONStorage", "JSONStorageError"]

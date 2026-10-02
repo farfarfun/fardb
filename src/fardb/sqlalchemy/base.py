@@ -7,10 +7,12 @@ from typing import Any
 import pandas as pd
 from farlog import getLogger
 from sqlalchemy import BIGINT, Engine, UniqueConstraint, delete
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, sessionmaker
-from sqlalchemy.sql import Insert
+from sqlalchemy.sql import Executable, Insert
+from sqlalchemy.sql.compiler import SQLCompiler
 
 logger = getLogger("fardb")
 
@@ -20,19 +22,19 @@ class TableOperationError(RuntimeError):
 
 
 @compiles(Insert, "sqlite")
-def sqlite_insert_ignore(insert, compiler, **kw):
+def sqlite_insert_ignore(insert: Insert, compiler: SQLCompiler, **kw: Any) -> str:
     """SQLite 方言下把 INSERT 编译为 `INSERT OR IGNORE`。"""
     return compiler.visit_insert(insert.prefix_with("OR IGNORE"), **kw)
 
 
 @compiles(Insert, "mysql")
-def mysql_insert_ignore(insert, compiler, **kw):
+def mysql_insert_ignore(insert: Insert, compiler: SQLCompiler, **kw: Any) -> str:
     """MySQL 方言下把 INSERT 编译为 `INSERT IGNORE`。"""
     return compiler.visit_insert(insert.prefix_with("IGNORE"), **kw)
 
 
 @compiles(Insert, "postgresql")
-def postgresql_insert_ignore(insert, compiler, **kw):
+def postgresql_insert_ignore(insert: Insert, compiler: SQLCompiler, **kw: Any) -> str:
     """PostgreSQL 方言下为 INSERT 追加 `ON CONFLICT DO NOTHING`。"""
     statement = compiler.visit_insert(insert, **kw)
     returning_position = statement.find("RETURNING")
@@ -67,8 +69,12 @@ class BaseTable:
     """
 
     def __init__(
-        self, engine: Engine, table: type = TmpTable, *args: Any, **kwargs: Any
-    ):
+        self,
+        engine: Engine,
+        table: type[Base] = TmpTable,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         self.table = table
         self.table_name = self.table.__tablename__
         self.engine: Engine = engine
@@ -79,7 +85,7 @@ class BaseTable:
         """按当前表模型的元数据创建表（已存在则忽略）。"""
         self.table.metadata.create_all(self.engine)
 
-    def execute(self, stmt):
+    def execute(self, stmt: Executable) -> CursorResult[Any]:
         """在一个事务中执行任意 SQL 语句并返回结果。"""
         with self.engine.begin() as conn:
             return conn.execute(stmt)
@@ -89,7 +95,7 @@ class BaseTable:
         with self.engine.begin() as conn:
             return pd.read_sql_table(self.table_name, conn)
 
-    def delete_all(self):
+    def delete_all(self) -> CursorResult[Any]:
         """清空整张表。"""
         return self.execute(delete(self.table))
 
