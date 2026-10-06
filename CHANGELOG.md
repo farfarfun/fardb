@@ -17,10 +17,12 @@
   缺失标注，仅剩 `Any` 相关的 ANN401）。
 - 新增 ORM 正常路径测试（`upsert` 插入 / 已存在不覆盖 / `update_data=True` 更新、
   `select_all`）以及 `select_all` 的跨表缓存隔离测试。
-- 提交 `uv.lock`，确保依赖解析可复现。
+- 移除关于提交 `uv.lock` 的不实说明；仓库遵循 `.gitignore` 中的规则，不跟踪该文件。
 - `dev` 依赖组补上 `ruff`，使 §7 要求的 lint/format 在干净克隆中可直接执行。
 - 仓库已更名为 `farfarfun/fardb`，仓库 description 与 homepage 同步指向 `fardb`。
 - README 去掉改名历史说明，只描述当前状态。
+- MySQL 支持改为通过 `mysql` 可选依赖组安装 `pymysql`；密码从
+  `FARDB_MYSQL_PASSWORD` 环境变量读取，不再作为公开函数参数或拼接到普通连接串中。
 
 ## [1.4.3]
 

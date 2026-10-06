@@ -9,6 +9,13 @@
 pip install fardb
 ```
 
+使用 MySQL 时，请安装对应的可选依赖，并通过环境变量提供密码：
+
+```bash
+pip install "fardb[mysql]"
+export FARDB_MYSQL_PASSWORD='your-password'
+```
+
 ## 快速上手
 
 ```python

@@ -5,6 +5,7 @@ description = "基于 SQLAlchemy 的轻量数据库工具库：引擎创建与�
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [ "farlog>=1.1.7", "farcache>=2.0.3", "sqlalchemy>=2.0.36", "pandas>=2.0.0", "requests>=2.28.0",]
+optional-dependencies = { mysql = ["pymysql>=1.1.0"] }
 license = "MIT"
 license-files = ["LICENSE"]
 [[project.authors]]

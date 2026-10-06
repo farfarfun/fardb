@@ -1,9 +1,8 @@
-"""Lightweight smoke tests for fardb.
+"""fardb 的轻量冒烟测试。
 
-These tests confirm the public API can be imported and exercised at a basic
-level. Real network calls (JSONStorage) are mocked with unittest.mock.
-sqlite in-memory engines are used for the sqlalchemy helpers because they
-are real but fully local/ephemeral - no external DB or network is touched.
+这些测试确认公开 API 可以导入并完成基本调用。真实网络调用（JSONStorage）通过
+unittest.mock 模拟；SQLAlchemy 辅助函数使用本地临时 SQLite 内存数据库，不访问
+外部数据库或网络。
 """
 
 import hashlib
@@ -37,7 +36,7 @@ def test_import_fardb_sqlalchemy():
 
 
 def test_create_engine_sqlite_memory_real_connection():
-    """sqlite in-memory is a real but fully local/ephemeral DB, safe to hit directly."""
+    """SQLite 内存数据库是真实但完全本地、临时的数据库，可直接访问。"""
     from sqlalchemy import text
 
     from fardb.sqlalchemy import create_engine_sqlite
@@ -59,22 +58,39 @@ def test_create_engine_caches_by_uri():
     assert e3 is not e1
 
 
-def test_create_engine_mysql_builds_expected_uri():
-    """pymysql is not installed/required for this smoke suite, so mock the
-    underlying sqlalchemy.create_engine call to avoid a real driver import."""
+def test_create_engine_mysql_builds_expected_url(monkeypatch):
+    """模拟底层创建调用，验证 MySQL 配置而不导入驱动或连接真实数据库。"""
+    monkeypatch.setenv("FARDB_MYSQL_PASSWORD", "mypass")
     with patch("fardb.sqlalchemy.engine.create_engine2") as mock_create:
         mock_create.return_value = MagicMock()
         from fardb.sqlalchemy import create_engine_mysql
 
-        create_engine_mysql("myhost", "myuser", "mypass", "mydb", port=3307)
+        create_engine_mysql("myhost", "myuser", "mydb", port=3307)
 
-    called_uri = mock_create.call_args[0][0]
-    assert called_uri == "mysql+pymysql://myuser:mypass@myhost:3307/mydb?charset=utf8"
+    called_url = mock_create.call_args[0][0]
+    assert called_url.drivername == "mysql+pymysql"
+    assert called_url.username == "myuser"
+    assert called_url.password == "mypass"
+    assert called_url.host == "myhost"
+    assert called_url.port == 3307
+    assert called_url.database == "mydb"
+    assert called_url.query == {"charset": "utf8"}
+    assert "mypass" not in str(called_url)
+
+
+def test_create_engine_mysql_requires_password_environment_variable(monkeypatch):
+    """未配置密码环境变量时，MySQL 入口应清楚地拒绝创建连接。"""
+    import pytest
+
+    from fardb.sqlalchemy import create_engine_mysql
+
+    monkeypatch.delenv("FARDB_MYSQL_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="FARDB_MYSQL_PASSWORD"):
+        create_engine_mysql("myhost", "myuser")
 
 
 def test_basetable_crud_with_sqlite_memory():
-    """fardb.sqlalchemy.BaseTable wraps simple CRUD helpers; exercise them
-    against a real local sqlite in-memory engine (no external DB involved)."""
+    """在真实本地 SQLite 内存数据库上测试 BaseTable 的基本 CRUD 辅助函数。"""
     from sqlalchemy import BIGINT, String
     from sqlalchemy.orm import mapped_column
 
@@ -85,9 +101,8 @@ def test_basetable_crud_with_sqlite_memory():
         id = mapped_column(BIGINT, primary_key=True)
         name = mapped_column(String(64))
 
-    # ":memory:" is the one literal sqlalchemy/sqlite treats as an ephemeral
-    # in-memory DB; anything else (e.g. ":memory:some-suffix") is a real file
-    # on disk, so reuse the exact same literal here.
+    # SQLAlchemy/SQLite 仅将精确的 ":memory:" 识别为临时内存数据库；带后缀的值
+    # 会变成磁盘文件，因此这里复用完全相同的字面量。
     engine = create_engine_sqlite(":memory:")
     table = BaseTable(engine, table=SmokeTable)
 
@@ -106,10 +121,7 @@ def test_basetable_crud_with_sqlite_memory():
 
 
 def test_orm_basetable_get_uid_and_to_dict(tmp_path, monkeypatch):
-    """fardb.sqlalchemy.table.BaseTable is a DeclarativeBase mixin. Importing
-    it eagerly initializes an on-disk cache directory (farcache.disk_cache
-    runs at class-definition time) as a side effect, so chdir into a tmp dir
-    first to avoid leaving .disk_cache artifacts in the repo."""
+    """BaseTable 导入时会初始化磁盘缓存目录，测试先切换到临时目录避免留下文件。"""
     monkeypatch.chdir(tmp_path)
 
     from sqlalchemy import String
@@ -144,8 +156,7 @@ def test_jsonstorage_construction():
 
 
 def test_jsonstorage_request_mocks_network():
-    """JSONStorage.request() does a real HTTP GET; mock requests.get so this
-    smoke test doesn't depend on network access."""
+    """JSONStorage.request() 会执行 HTTP GET，模拟请求以避免依赖网络。"""
     from fardb.json import JSONStorage
 
     storage = JSONStorage()
