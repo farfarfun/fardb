@@ -39,6 +39,21 @@ df = table.select_all()
 print(df)
 ```
 
+## 发布
+
+开发环境安装依赖后，在项目根目录使用组织的 `funbuild` 完成版本递增、构建、安装校验和发布：
+
+```bash
+pip install "funbuild>=1.6.97"
+funbuild build
+```
+
+`funbuild build` 会依次执行版本递增、构建、安装校验、发布、提交、推送和打标签。发布前请确认工作区干净、远程分支可拉取，并已配置发布凭据；仅需本地构建和安装校验时使用：
+
+```bash
+funbuild install
+```
+
 ---
 
 ## 关于 farfarfun
