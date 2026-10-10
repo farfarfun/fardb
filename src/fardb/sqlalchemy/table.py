@@ -78,6 +78,9 @@ class BaseTable(DeclarativeBase):
             session: 当前数据库会话。
             update_data: 记录已存在时是否执行更新，默认 `False`。
 
+        返回:
+            无返回值。
+
         异常:
             TableOperationError: 数据库写入失败时抛出，原始异常通过
                 `__cause__` 保留。
@@ -101,5 +104,13 @@ class BaseTable(DeclarativeBase):
     @staticmethod
     @disk_cache(cache_key="table", expire=600)
     def select_all(session: Session, table: type[BaseTable]) -> list[BaseTable]:
-        """查询表内全部记录（结果按 `table` 参数缓存 600 秒）。"""
+        """查询表内全部记录（结果按 `table` 参数缓存 600 秒）。
+
+        参数:
+            session: 用于执行查询的数据库会话。
+            table: 要查询的 ORM 表模型。
+
+        返回:
+            表中全部记录组成的模型实例列表。
+        """
         return [resource for resource in session.execute(select(table)).scalars()]

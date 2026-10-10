@@ -41,4 +41,4 @@ target-version = "py310"
 extend-select = ["I"]
 
 [dependency-groups]
-dev = [ "pytest>=8.0.0", "ruff>=0.6.0",]
+dev = [ "funbuild>=1.6.97", "pytest>=8.0.0", "ruff>=0.6.0",]

@@ -86,7 +86,14 @@ class BaseTable:
         self.table.metadata.create_all(self.engine)
 
     def execute(self, stmt: Executable) -> CursorResult[Any]:
-        """在一个事务中执行任意 SQL 语句并返回结果。"""
+        """在一个事务中执行 SQL 语句。
+
+        参数:
+            stmt: 待执行的 SQLAlchemy 可执行语句。
+
+        返回:
+            SQL 语句执行后返回的游标结果。
+        """
         with self.engine.begin() as conn:
             return conn.execute(stmt)
 
@@ -96,7 +103,11 @@ class BaseTable:
             return pd.read_sql_table(self.table_name, conn)
 
     def delete_all(self) -> CursorResult[Any]:
-        """清空整张表。"""
+        """清空整张表。
+
+        返回:
+            删除语句执行后返回的游标结果。
+        """
         return self.execute(delete(self.table))
 
     def insert(self, values: dict | list[dict]) -> None:
